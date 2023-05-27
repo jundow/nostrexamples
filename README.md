@@ -42,3 +42,30 @@ $ go run main.go
 ```
 
 to get the recent 1000 notes from the time line.
+
+## ex3 (Golang)
+
+Probably the most minimal program that post a note to single relay.
+
+However, I could not create an elliptic curve cryptograph program from the scrathc.
+You need to go get elliptic cure cryptograph library as follows.
+
+``` bash
+$ go get github.com/btcsuite/btcd/btcec/v2/schnorr
+```
+
+*** CAUTION *** 
+You need to hardcode urls of relay, public key and *** secret key.***
+
+It is strongly recommended to prepare a key-pair other than the keys associated with your Nostr identity to avoid an accident key leakage.
+
+``` golang
+	urlws := "wss://nos.lol/"
+	urlhttp := "https://nos.lol/"
+	pubkhex := "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+	sekhex := "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+	msg := "Your message comes here."
+```
+Put your message to be issued to the variable "msg."
+The event will immediately be issued once the program ran.
+
