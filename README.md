@@ -54,10 +54,10 @@ You need to go get elliptic cure cryptograph library as follows.
 $ go get github.com/btcsuite/btcd/btcec/v2/schnorr
 ```
 
-*** CAUTION *** 
-You need to hardcode urls of relay, public key and *** secret key.***
+** CAUTION ** 
+You need to hardcode urls of relay, public key and ** secret key.**
 
-It is strongly recommended to prepare a key-pair other than the keys associated with your Nostr identity to avoid an accident key leakage.
+It is strongly recommended to prepare a key-pair other than the keys associated with your Nostr identity to avoid an accidenttal key leakage.
 
 ``` golang
 	urlws := "wss://nos.lol/"
