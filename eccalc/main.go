@@ -11,7 +11,7 @@ func main() {
 	z := big.NewInt(0)
 	ret := big.NewInt(0)
 
-	p64 := int64(29)
+	p64 := int64(31)
 	p := big.NewInt(p64)
 
 	for i := int64(0); i < p64; i++ {
@@ -39,6 +39,12 @@ func main() {
 		pow.SetInt64(i)
 		fp.FpPow(m, pow, p, ret)
 		fmt.Println("ANSWER", m, pow, p, ret)
+	}
+
+	for i := int64(2); i < p64; i++ {
+		x := big.NewInt(i)
+		_, err := fp.FpSecp256kSqrt(x, z)
+		fmt.Println(err, x, z)
 	}
 
 }
