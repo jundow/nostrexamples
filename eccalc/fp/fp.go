@@ -1,8 +1,23 @@
 package fp
 
 import (
+	"fmt"
 	"math/big"
 )
+
+var zero *big.Int
+var one *big.Int
+var four *big.Int
+var pSecp256k *big.Int
+
+func init() {
+	fmt.Println("fp init")
+	zero = big.NewInt(0)
+	one = big.NewInt(1)
+	four = big.NewInt(4)
+	//p := big.NewInt(31)
+	pSecp256k, _ = big.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16)
+}
 
 func FpAdd(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
 	ret.Add(x, y)
@@ -23,8 +38,6 @@ func FpMul(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
 }
 
 func FpInv(x *big.Int, p *big.Int, ret *big.Int) *big.Int {
-	zero := big.NewInt(0)
-
 	a := big.NewInt(0).Set(p)
 	b := big.NewInt(0).Set(x)
 	q := big.NewInt(0)
@@ -91,19 +104,14 @@ func FpPow(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
 }
 
 func FpSecp256kSqrt(x *big.Int, ret *big.Int) (*big.Int, bool) {
-	one := big.NewInt(1)
-	four := big.NewInt(4)
-	//p := big.NewInt(31)
-	p, _ := big.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16)
-
 	tmp := big.NewInt(0)
 	tmp2 := big.NewInt(0)
 
-	tmp.Add(p, one)
+	tmp.Add(pSecp256k, one)
 	tmp.Div(tmp, four)
 
-	FpPow(x, tmp, p, ret)
-	FpMul(ret, ret, p, tmp2)
+	FpPow(x, tmp, pSecp256k, ret)
+	FpMul(ret, ret, pSecp256k, tmp2)
 
 	//fmt.Println(x, tmp, ret, tmp2)
 
