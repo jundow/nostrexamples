@@ -41,9 +41,11 @@ func main() {
 		fmt.Println("ANSWER", m, pow, p, ret)
 	}
 
+	pSecp256k, _ := big.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16)
+
 	for i := int64(2); i < p64; i++ {
 		x := big.NewInt(i)
-		_, err := fp.FpSecp256kSqrt(x, z)
+		_, err := fp.FpSecp256kSqrt(x, pSecp256k, z)
 		fmt.Println(err, x, z)
 	}
 

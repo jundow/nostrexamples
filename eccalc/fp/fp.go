@@ -103,15 +103,15 @@ func FpPow(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
 	return ret
 }
 
-func FpSecp256kSqrt(x *big.Int, ret *big.Int) (*big.Int, bool) {
+func FpSecp256kSqrt(x *big.Int, p *big.Int, ret *big.Int) (*big.Int, bool) {
 	tmp := big.NewInt(0)
 	tmp2 := big.NewInt(0)
 
-	tmp.Add(pSecp256k, one)
+	tmp.Add(p, one)
 	tmp.Div(tmp, four)
 
-	FpPow(x, tmp, pSecp256k, ret)
-	FpMul(ret, ret, pSecp256k, tmp2)
+	FpPow(x, tmp, p, ret)
+	FpMul(ret, ret, p, tmp2)
 
 	//fmt.Println(x, tmp, ret, tmp2)
 
