@@ -13,6 +13,12 @@ type EC struct {
 	Order *big.Int
 }
 
+type ECElement struct {
+	ec *EC
+	x  *big.Int
+	y  *big.Int
+}
+
 var Secp256k1 EC
 var test EC
 
@@ -32,14 +38,31 @@ func init() {
 	test.Gy, _ = new(big.Int).SetString("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8", 16)
 }
 
-func ECAdd(x1 *big.Int, y1 *big.Int, x2 *big.Int, y2 *big.Int, xr *big.Int, yr *big.Int) {
+func (z *ECElement) Add(x1 *ECElement, x2 *ECElement) *ECElement {
+	if x1.x.CmpAbs(z.ec.P) == 0 && x2.x.CmpAbs(z.ec.P) == 0 {
+
+	} else if x1.x.CmpAbs(z.ec.P) == 0 {
+
+	} else if x2.x.CmpAbs(z.ec.P) == 0 {
+
+	} else {
+
+	}
 
 }
 
-func ECDouble(x1 *big.Int, y1 *big.Int, xr *big.Int, yr *big.Int) {
+func (z *ECElement) Double(x1 *ECElement) *ECElement {
+	if x1.x.CmpAbs(z.ec.P) == 0 {
 
+	} else {
+
+	}
 }
 
-func ECScalarMul(x1 *big.Int, y1 *big.Int, m *big.Int, xr *big.Int, yr *big.Int) {
+func (z *ECElement) ScalarMul(x1 *ECElement, m *big.Int) *ECElement {
+	if x1.x.CmpAbs(z.ec.P) == 0 {
 
+	} else {
+
+	}
 }
