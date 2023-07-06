@@ -1,6 +1,7 @@
 package fp
 
 import (
+	"eccalc/fp"
 	"math/big"
 )
 
@@ -38,31 +39,92 @@ func init() {
 	test.Gy, _ = new(big.Int).SetString("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8", 16)
 }
 
-func (z *ECElement) Add(x1 *ECElement, x2 *ECElement) *ECElement {
-	if x1.x.CmpAbs(z.ec.P) == 0 && x2.x.CmpAbs(z.ec.P) == 0 {
-
-	} else if x1.x.CmpAbs(z.ec.P) == 0 {
-
-	} else if x2.x.CmpAbs(z.ec.P) == 0 {
-
-	} else {
-
-	}
+func NewECElement(ec *EC, gx, gy *big.Int) *ECElement {
 
 }
 
-func (z *ECElement) Double(x1 *ECElement) *ECElement {
-	if x1.x.CmpAbs(z.ec.P) == 0 {
-
+func (gr *ECElement) Add(g1, g2 *ECElement) *ECElement {
+	if g1.x.CmpAbs(gr.ec.P) == 0 && g2.x.CmpAbs(gr.ec.P) == 0 {
+		gr.x.Set(gr.ec.P)
+		gr.y.Set(gr.ec.P)
+	} else if g1.x.CmpAbs(gr.ec.P) == 0 {
+		gr.x.Set(g2.x)
+		gr.y.Set(g2.y)
+	} else if g2.x.CmpAbs(gr.ec.P) == 0 {
+		gr.x.Set(g1.x)
+		gr.y.Set(g1.y)
 	} else {
+		A := big.NewInt(0)
+		B := big.NewInt(0)
+		C := big.NewInt(0)
+		ret := big.NewInt(0)
 
+		lambda := big.NewInt(0)
+
+		fp.FpSub(g2.y, g1.y, gr.ec.P, A)
+		fp.FpSub(g2.x, g1.x, gr.ec.P, B)
+		fp.FpDiv(A, B, gr.ec.P, lambda)
+
+		fp.FpMul(lambda, lambda, gr.ec.P, ret)
+		fp.FpSub(ret, g1.x, gr.ec.P, ret)
+		fp.FpSub(ret, g2.x, gr.ec.P, gr.x)
+
+		fp.FpSub(g1.x, gr.x, gr.ec.P, C)
+		fp.FpMul(lambda, C, gr.ec.P, ret)
+		fp.FpSub(ret, g1.y, gr.ec.P, gr.y)
 	}
+	return gr
 }
 
-func (z *ECElement) ScalarMul(x1 *ECElement, m *big.Int) *ECElement {
-	if x1.x.CmpAbs(z.ec.P) == 0 {
+func (gr *ECElement) Double(g1 *ECElement) *ECElement {
+	if g1.x.CmpAbs(gr.ec.P) == 0 {
+		gr.x.Set(gr.ec.P)
+		gr.y.Set(gr.ec.P)
+	} else {
+		two := big.NewInt(2)
+
+		C := big.NewInt(0)
+		lambda := big.NewInt(3)
+
+		fp.FpMul(lambda, g1.x, gr.ec.P, lambda)
+		fp.FpMul(lambda, g1.x, gr.ec.P, lambda)
+		fp.FpAdd(lambda, gr.ec.A, gr.ec.P, lambda)
+		fp.FpDiv(lambda, g1.y, gr.ec.P, lambda)
+		fp.FpDiv(lambda, two, gr.ec.P, lambda)
+
+		ret := big.NewInt(0)
+
+		ret.Set(lambda)
+		fp.FpMul(ret, lambda, gr.ec.P, ret)
+		fp.FpSub(ret, g1.x, gr.ec.P, ret)
+		fp.FpSub(ret, g1.x, gr.ec.P, gr.x)
+
+		fp.FpSub(g1.x, gr.x, gr.ec.P, C)
+		fp.FpMul(lambda, C, gr.ec.P, ret)
+		fp.FpSub(ret, g1.y, gr.ec.P, gr.y)
+	}
+	return gr
+}
+
+func (gr *ECElement) ScalarMul(g1 *ECElement, m *big.Int) *ECElement {
+	if g1.x.CmpAbs(gr.ec.P) == 0 {
 
 	} else {
+		/*
+			xtmp := big.NewInt(0).Set(x)
+			ret.SetInt64(1)
+			//fmt.Println(y.BitLen())
+			for i := 0; i < y.BitLen(); i++ {
+				if y.Bit(i) > 0 {
+					ret.Mul(ret, xtmp)
+					ret.Mod(ret, p)
+				}
+				//fmt.Println("Debug", i, y.Bit(i), xtmp, ret)
+				xtmp.Mul(xtmp, xtmp)
+				xtmp.Mod(xtmp, p)
+			}
+			return ret
+		*/
 
 	}
 }
