@@ -8,15 +8,14 @@ import (
 var zero *big.Int
 var one *big.Int
 var four *big.Int
-var pSecp256k *big.Int
+
+//var pSecp256k *big.Int
 
 func init() {
 	fmt.Println("fp init")
 	zero = big.NewInt(0)
 	one = big.NewInt(1)
 	four = big.NewInt(4)
-	//p := big.NewInt(31)
-	pSecp256k, _ = big.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16)
 }
 
 func FpAdd(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
@@ -82,8 +81,9 @@ func FpInv(x *big.Int, p *big.Int, ret *big.Int) *big.Int {
 }
 
 func FpDiv(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
-	FpInv(y, p, ret)
-	FpMul(x, ret, p, ret)
+	tmp := big.NewInt(0)
+	FpInv(y, p, tmp)
+	FpMul(x, tmp, p, ret)
 	return ret
 }
 

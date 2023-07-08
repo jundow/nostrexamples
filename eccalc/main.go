@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"eccalc/ec"
 	"eccalc/fp"
 )
 
@@ -49,4 +50,14 @@ func main() {
 		fmt.Println(err, x, z)
 	}
 
+	gs := ec.NewECElement(&ec.Test, ec.Test.Gx, ec.Test.Gy)
+	g := ec.NewECElement(&ec.Test, ec.Test.Gx, ec.Test.Gy)
+
+	var i int64
+	i = 1
+
+	for i = 1; i < 100; i++ {
+		g.ScalarMul(gs, m.SetInt64(i))
+		fmt.Println(i, g.X, g.Y)
+	}
 }
