@@ -1,7 +1,9 @@
 package ec
 
 import (
+	"crypto/rand"
 	"eccalc/fp"
+	"errors"
 	"math/big"
 )
 
@@ -158,4 +160,38 @@ func (gr *ECElement) ScalarMul(g1 *ECElement, m *big.Int) *ECElement {
 		gr.Set(gret)
 	}
 	return gr
+}
+
+func GenerateSecp256k1PublicKey(secret *big.Int) (*ECElement, error) {
+	g := NewECElement(&Secp256k1, Secp256k1.P, Secp256k1.P)
+
+	if secret.Cmp(zero) == 0 || secret.Cmp(Secp256k1.Order) >= 0 {
+		err := errors.New("invalid secret key")
+		return g, err
+	}
+
+	gsecp := NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
+	g.ScalarMul(gsecp, secret)
+	return g, nil
+}
+
+func GetSecp256k1SchnorrSignature(secret *big.Int, hash [32]byte) ([64]byte, error) {
+	if secret.Cmp(zero) == 0 || secret.Cmp(Secp256k1.Order) >= 0 {
+		err := errors.New("invalid secret key")
+		return [64]byte{}, err
+	}
+	d := big.NewInt(0).Set(secret)
+
+	p, err := GenerateSecp256k1PublicKey(d)
+	if err != nil {
+		return [64]byte{}, err
+	}
+
+	if p.Y.Bit(0) != 0 {
+		fp.FpSub(Secp256k1.Order, p, Secp256k1.Order, d)
+	}
+
+	max, _ := big.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+	a, errrand := rand.Int(rand.Reader, max)
+
 }

@@ -65,7 +65,7 @@ func main() {
 		}
 	*/
 
-	filep, err := os.Open("../testkeys")
+	filep, err := os.Open("../../testkeys")
 	if err != nil {
 		return
 	}
