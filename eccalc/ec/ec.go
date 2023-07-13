@@ -1,7 +1,6 @@
 package ec
 
 import (
-	"crypto/rand"
 	"eccalc/fp"
 	"errors"
 	"math/big"
@@ -175,6 +174,7 @@ func GenerateSecp256k1PublicKey(secret *big.Int) (*ECElement, error) {
 	return g, nil
 }
 
+/*
 func GetSecp256k1SchnorrSignature(secret *big.Int, hash [32]byte) ([64]byte, error) {
 	if secret.Cmp(zero) == 0 || secret.Cmp(Secp256k1.Order) >= 0 {
 		err := errors.New("invalid secret key")
@@ -195,3 +195,4 @@ func GetSecp256k1SchnorrSignature(secret *big.Int, hash [32]byte) ([64]byte, err
 	a, errrand := rand.Int(rand.Reader, max)
 
 }
+*/

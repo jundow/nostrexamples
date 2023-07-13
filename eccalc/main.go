@@ -96,6 +96,7 @@ func main() {
 		fmt.Println(fmt.Sprintf("X    %x", g.X))
 		fmt.Println(fmt.Sprintf("Y    %x", g.Y))
 		fmt.Println(fmt.Sprintf("S    %x", s))
+
 		if s.Bit(0) != 0 {
 			fmt.Println("odd")
 			fp.FpSub(g.Ec.P, s, g.Ec.P, s)
@@ -104,3 +105,28 @@ func main() {
 		fmt.Println()
 	}
 }
+
+/*
+how to conver big.int to array
+package main
+
+import (
+	"fmt"
+	"math/big"
+	"reflect"
+)
+
+func main() {
+	a, _ := big.NewInt(0).SetString("A1234", 16)
+	b := make([]byte, 32)
+	var c [32]byte
+	a.FillBytes(b)
+	copy(c[:], b[0:32])
+	fmt.Println(fmt.Sprintf("%X", a))
+	fmt.Println(b)
+	fmt.Println(reflect.TypeOf(b))
+
+	fmt.Println(reflect.TypeOf(c))
+	fmt.Println("Hello, playground")
+}
+*/
