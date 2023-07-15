@@ -47,7 +47,7 @@ func init() {
 
 	zero = big.NewInt(0)
 	two = big.NewInt(2)
-	rand_max = bing.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+	rand_max, _ = big.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
 }
 
 func NewECElement(ec *EC, gx, gy *big.Int) *ECElement {
@@ -166,17 +166,27 @@ func (gr *ECElement) ScalarMul(g1 *ECElement, m *big.Int) *ECElement {
 	return gr
 }
 
-func GenerateSecp256k1PublicKey(secret *big.Int) (*ECElement, error) {
+func GenerateSecp256k1PublicKey(sec [32]byte) ([32]byte, error) {
+
+	secret := big.NewInt(0).SetBytes(sec[0:32])
+
 	g := NewECElement(&Secp256k1, Secp256k1.P, Secp256k1.P)
 
 	if secret.Cmp(zero) == 0 || secret.Cmp(Secp256k1.Order) >= 0 {
 		err := errors.New("invalid secret key")
-		return g, err
+		return [32]byte{}, err
 	}
 
 	gsecp := NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
 	g.ScalarMul(gsecp, secret)
-	return g, nil
+
+	var ret [32]byte
+	tmp := make([]byte, 32)
+
+	g.X.FillBytes(tmp)
+	copy(ret[0:32], tmp[0:32])
+
+	return ret, nil
 }
 
 func (gr *ECElement) GetBytes() ([32]byte, [32]byte) {
@@ -193,11 +203,8 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	if raux_err != nil {
 		return [64]byte{}, raux_err
 	}
-
 	var a [32]byte
-	rtmp := make([]byte, 32)
-	raux.FillBytes(rtmp)
-	copy(a[0:32], rtmp[0:32])
+	copy(a[0:32], raux.FillBytes(make([]byte, 32)))
 
 	////////////////////////
 	//Public Key Generation
@@ -219,11 +226,9 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 
 	//public key in byte array
 	var bytes_Pub [32]byte
-	bptmp := make([]byte, 32)
-	p.X.FillBytes(bptmp)
-	copy(bytes_Pub[0:32], bptmp[0:32])
+	copy(bytes_Pub[0:32], p.X.FillBytes(make([]byte, 32)))
 
-	//If P.Y is even let d = dd, otherwise d = order -d (mod Order of secp256k1)
+	//If p.Y is even let d = dd, otherwise d = order -d (mod Order of secp256k1)
 	var d *big.Int
 	if p.Y.Bit(0) == 0 {
 		d = big.NewInt(0).Set(dd)
@@ -252,11 +257,11 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	rand_b = append(rand_b, bytes_Pub[0:32]...)
 	rand_b = append(rand_b, message...)
 
-	rand := sha256.Sum256(rand_b[0:32])
+	rand := sha256.Sum256(rand_b[:])
 
 	//k' = int(rand) mod n
 	kd := big.NewInt(0).SetBytes(rand[0:32])
-	kd = kd.Mod(kd, Secp256k1.Order)
+	kd.Mod(kd, Secp256k1.Order)
 
 	//Fail kd == 0
 	if kd.Cmp(zero) == 0 {
@@ -264,6 +269,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	}
 
 	//r = kd g
+	gsecp = NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
 	r := NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
 	r.ScalarMul(gsecp, kd)
 
@@ -279,26 +285,32 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	//////////////////////
 	//Generate a signature
 
-	// let e the integer of hash( bytes("bytes/challenge") || bytes("bytes/challenge") || bytes(R) || bytes(P) || m)
+	// let e the integer of hash( bytes("bytes/challenge") || bytes("bytes/challenge") || bytes(R) || bytes(P) || m )
 	tagBIP0340challenge := []byte("BIP0340/challenge")
+	tbc := sha256.Sum256(tagBIP0340challenge)
 
 	//Elliptic curve points at r = kd g in byte array
 	var r_b [32]byte
-	rbtmp := make([]byte, 32)
-	r.X.FillBytes(rbtmp)
-	copy(r_b[0:32], rbtmp[0:32])
+	copy(r_b[0:32], r.X.FillBytes(make([]byte, 32)))
 
-	e_b := append(tagBIP0340challenge, tagBIP0340challenge...)
-	e_b = append(e_b, r_b[0:32]...)
-	e_b = append(e_b, bytes_Pub[0:32]...)
-	e_b = append(e_b, message...)
+	e_htmp := sha256.New()
+	//e_htmp.Write(tagBIP0340challenge)
+	//e_htmp.Write(tagBIP0340challenge)
+	e_htmp.Write(tbc[0:32])
+	e_htmp.Write(tbc[0:32])
+	e_htmp.Write(r_b[0:32])
+	e_htmp.Write(bytes_Pub[0:32])
+	e_htmp.Write(message)
+	e_h := e_htmp.Sum(nil)
 
-	e := big.NewInt(0).SetBytes(e_b)
+	e := big.NewInt(0).SetBytes(e_h[0:32])
+	e.Mod(e, Secp256k1.Order)
 
 	//let s_b be bytes( k+ed mod order )
 	s := big.NewInt(0).Set(e)
 	s.Mul(s, d)
 	s.Add(s, k)
+	s.Mod(s, Secp256k1.Order)
 
 	var s_b [32]byte
 	sbtmp := make([]byte, 32)
@@ -307,8 +319,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 
 	//return r_b = bytes(r) and s_b
 	var ret [64]byte
-	copy(ret[0:32], append(r_b[0:32], s_b[0:32]...))
+	copy(ret[0:64], append(r_b[0:32], s_b[0:32]...))
 
 	return ret, nil
-
 }

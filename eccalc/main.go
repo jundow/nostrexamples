@@ -3,15 +3,14 @@ package main
 import (
 	"bufio"
 	"crypto/sha256"
+	"eccalc/ec"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"os"
+	"time"
 
 	"golang.org/x/net/websocket"
-
-	"eccalc/ec"
-	"eccalc/fp"
 )
 
 func Recv(ws *websocket.Conn, v *[]any) error {
@@ -46,9 +45,12 @@ func Send(ws *websocket.Conn, msg string) {
 	websocket.Message.Send(ws, msg)
 }
 
-func Serialize(pub string, created_at int64, kind int, tags [][]string, content string) [32]byte {
+func Serialize(pubkey [32]byte, created_at int64, kind int, tags [][]string, content string) [32]byte {
+
+	pubstr := hex.EncodeToString(pubkey[0:32])
+
 	str := "[0," +
-		"\"" + pub + "\"," +
+		"\"" + pubstr + "\"," +
 		fmt.Sprint(created_at) + "," +
 		fmt.Sprint(kind) + "," +
 		fmt.Sprint(tags) + "," +
@@ -120,45 +122,45 @@ func main() {
 
 	/*
 
-	filep, err := os.Open("../../testkeys")
-	if err != nil {
-		return
-	}
-	defer filep.Close()
-
-	skeys := []string{}
-	scanner := bufio.NewScanner(filep)
-	for scanner.Scan() {
-		line := scanner.Text()
-		skeys = append(skeys, line)
-	}
-
-	s := big.NewInt(0)
-	gsecp := ec.NewECElement(&ec.Secp256k1, ec.Secp256k1.Gx, ec.Secp256k1.Gy)
-
-	var g *ec.ECElement
-
-	for _, skey := range skeys {
-		seckey, _ := big.NewInt(0).SetString(skey, 16)
-		g = ec.NewECElement(&ec.Secp256k1, ec.Secp256k1.Gx, ec.Secp256k1.Gy)
-		g.ScalarMul(gsecp, seckey)
-		s.Set(g.X)
-		fp.FpPow(s, big.NewInt(3), g.Ec.P, s)
-		fp.FpAdd(s, big.NewInt(7), g.Ec.P, s)
-		fp.FpSecp256kSqrt(s, g.Ec.P, s)
-
-		fmt.Println(fmt.Sprintf("skey %x", seckey))
-		fmt.Println(fmt.Sprintf("X    %x", g.X))
-		fmt.Println(fmt.Sprintf("Y    %x", g.Y))
-		fmt.Println(fmt.Sprintf("S    %x", s))
-
-		if s.Bit(0) != 0 {
-			fmt.Println("odd")
-			fp.FpSub(g.Ec.P, s, g.Ec.P, s)
-			fmt.Println(fmt.Sprintf("S    %x", s))
+		filep, err := os.Open("../../testkeys")
+		if err != nil {
+			return
 		}
-		fmt.Println()
-	}
+		defer filep.Close()
+
+		skeys := []string{}
+		scanner := bufio.NewScanner(filep)
+		for scanner.Scan() {
+			line := scanner.Text()
+			skeys = append(skeys, line)
+		}
+
+		s := big.NewInt(0)
+		gsecp := ec.NewECElement(&ec.Secp256k1, ec.Secp256k1.Gx, ec.Secp256k1.Gy)
+
+		var g *ec.ECElement
+
+		for _, skey := range skeys {
+			seckey, _ := big.NewInt(0).SetString(skey, 16)
+			g = ec.NewECElement(&ec.Secp256k1, ec.Secp256k1.Gx, ec.Secp256k1.Gy)
+			g.ScalarMul(gsecp, seckey)
+			s.Set(g.X)
+			fp.FpPow(s, big.NewInt(3), g.Ec.P, s)
+			fp.FpAdd(s, big.NewInt(7), g.Ec.P, s)
+			fp.FpSecp256kSqrt(s, g.Ec.P, s)
+
+			fmt.Println(fmt.Sprintf("skey %x", seckey))
+			fmt.Println(fmt.Sprintf("X    %x", g.X))
+			fmt.Println(fmt.Sprintf("Y    %x", g.Y))
+			fmt.Println(fmt.Sprintf("S    %x", s))
+
+			if s.Bit(0) != 0 {
+				fmt.Println("odd")
+				fp.FpSub(g.Ec.P, s, g.Ec.P, s)
+				fmt.Println(fmt.Sprintf("S    %x", s))
+			}
+			fmt.Println()
+		}
 	*/
 
 	filep, err := os.Open("../../testkeys")
@@ -167,60 +169,77 @@ func main() {
 	}
 	defer filep.Close()
 
-	skeys := []([32]byte)
+	var skeys []([32]byte)
+	var pkeys []([32]byte)
 
 	skeystr := []string{}
 	scanner := bufio.NewScanner(filep)
 	for scanner.Scan() {
 		line := scanner.Text()
 		skeystr = append(skeystr, line)
-
-
+		tmpkey, skeyerr := hex.DecodeString(line)
+		if skeyerr != nil {
+			fmt.Println("Error hex.DecoteString ", line)
+			return
+		}
+		var skey [32]byte
+		copy(skey[0:32], tmpkey)
+		skeys = append(skeys, skey)
+		pkey, pkerr := ec.GenerateSecp256k1PublicKey(skey)
+		if pkerr != nil {
+			fmt.Println("Error Public Key Generation ")
+			return
+		}
+		fmt.Println(line)
+		fmt.Println(pkey)
+		pkeys = append(pkeys, pkey)
 	}
 
-	urlws := "wss://nos.lol/"
-	urlhttp := "https://nos.lol/"
-	pubkhex := "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-	sekhex := "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-	msg := "Your message comes here."
+	msg := "Test"
 
 	tags := [][]string{}
 	kind := 1
 	created_at := time.Now().Unix()
 
-	hash := Serialize(pubkhex, created_at, kind, tags, msg)
-	evIDhex := hex.EncodeToString(hash[:])
-	evSig, sigerr := Sign(sekhex, hash)
-	if sigerr != nil {
-		fmt.Println("Signature Error")
-		fmt.Println(sigerr)
+	for i := 0; i < len(skeys); i++ {
+		hash := Serialize(pkeys[i], created_at, kind, tags, msg)
+		evIDhex := hex.EncodeToString(hash[:])
+		//evSig, sigerr := Sign(sekhex, hash)
+		evSig, sigerr := ec.SingSecp256k1(skeys[i], hash[:])
+		if sigerr != nil {
+			fmt.Println("Signature error", sigerr)
+			return
+		}
+		evSighex := hex.EncodeToString(evSig[:])
+
+		eventstr := "[\"EVENT\",{" +
+			"\"id\":" + "\"" + evIDhex + "\"," +
+			"\"pubkey\":" + "\"" + hex.EncodeToString(pkeys[i][0:32]) + "\"," +
+			"\"created_at\":" + fmt.Sprint(created_at) + "," +
+			"\"kind\":" + fmt.Sprint(kind) + "," +
+			"\"tags\":" + fmt.Sprint(tags) + "," +
+			"\"content\":" + "\"" + msg + "\"," +
+			"\"sig\":" + "\"" + evSighex + "\"" +
+			"}]"
+
+		fmt.Println(eventstr)
+
+		urlws := "wss://nos.lol/"
+		urlhttp := "https://nos.lol/"
+		var v []any
+		ws, wserr := websocket.Dial(urlws, "", urlhttp)
+		if wserr != nil {
+			fmt.Println(wserr)
+			return
+		}
+		Send(ws, eventstr)
+		Recv(ws, &v)
+		defer ws.Close()
+
+		fmt.Println(msg)
+		for _, item := range v {
+			fmt.Println(item)
+		}
 	}
-	evSighex := hex.EncodeToString(evSig[:])
 
-	eventstr := "[\"EVENT\",{" +
-		"\"id\":" + "\"" + evIDhex + "\"," +
-		"\"pubkey\":" + "\"" + pubkhex + "\"," +
-		"\"created_at\":" + fmt.Sprint(created_at) + "," +
-		"\"kind\":" + fmt.Sprint(kind) + "," +
-		"\"tags\":" + fmt.Sprint(tags) + "," +
-		"\"content\":" + "\"" + msg + "\"," +
-		"\"sig\":" + "\"" + evSighex + "\"" +
-		"}]"
-
-	fmt.Println(eventstr)
-
-	var v []any
-	ws, wserr := websocket.Dial(urlws, "", urlhttp)
-	if wserr != nil {
-		fmt.Println(wserr)
-		return
-	}
-	Send(ws, eventstr)
-	Recv(ws, &v)
-	defer ws.Close()
-
-	fmt.Println(msg)
-	for _, item := range v {
-		fmt.Println(item)
-	}
 }
