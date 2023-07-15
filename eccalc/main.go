@@ -58,14 +58,99 @@ func Serialize(pubkey [32]byte, created_at int64, kind int, tags [][]string, con
 
 	hash := sha256.Sum256([]byte(str))
 
-	//fmt.Println(str)
-	//fmt.Println([]byte(str))
-	//fmt.Println(hash)
-
 	return hash
 }
 
 func main() {
+
+	filep, err := os.Open("../../mkey")
+	if err != nil {
+		return
+	}
+	defer filep.Close()
+
+	var skeys []([32]byte)
+	var pkeys []([32]byte)
+
+	skeystr := []string{}
+	scanner := bufio.NewScanner(filep)
+	for scanner.Scan() {
+		line := scanner.Text()
+		skeystr = append(skeystr, line)
+		tmpkey, skeyerr := hex.DecodeString(line)
+		if skeyerr != nil {
+			fmt.Println("Error hex.DecoteString ", line)
+			return
+		}
+		var skey [32]byte
+		copy(skey[0:32], tmpkey)
+		skeys = append(skeys, skey)
+		pkey, pkerr := ec.GenerateSecp256k1PublicKey(skey)
+		if pkerr != nil {
+			fmt.Println("Error Public Key Generation ")
+			return
+		}
+		fmt.Println(line)
+		fmt.Println(pkey)
+		pkeys = append(pkeys, pkey)
+	}
+
+	msg := "Your Message Comes Here!"
+
+	tags := [][]string{}
+	kind := 1
+	created_at := time.Now().Unix()
+
+	for i := 0; i < len(skeys); i++ {
+		hash := Serialize(pkeys[i], created_at, kind, tags, msg)
+		evIDhex := hex.EncodeToString(hash[:])
+		//evSig, sigerr := Sign(sekhex, hash)
+		evSig, sigerr := ec.SingSecp256k1(skeys[i], hash[:])
+		if sigerr != nil {
+			fmt.Println("Signature error", sigerr)
+			return
+		}
+		evSighex := hex.EncodeToString(evSig[:])
+
+		eventstr := "[\"EVENT\",{" +
+			"\"id\":" + "\"" + evIDhex + "\"," +
+			"\"pubkey\":" + "\"" + hex.EncodeToString(pkeys[i][0:32]) + "\"," +
+			"\"created_at\":" + fmt.Sprint(created_at) + "," +
+			"\"kind\":" + fmt.Sprint(kind) + "," +
+			"\"tags\":" + fmt.Sprint(tags) + "," +
+			"\"content\":" + "\"" + msg + "\"," +
+			"\"sig\":" + "\"" + evSighex + "\"" +
+			"}]"
+
+		fmt.Println(eventstr)
+
+		wsurls := []string{
+			"wss://nos.lol/",
+		}
+
+		httpsurls := []string{
+			"https://nos.lol/",
+		}
+
+		for i = 0; i < len(wsurls); i++ {
+
+			var v []any
+			ws, wserr := websocket.Dial(wsurls[i], "", httpsurls[i])
+			if wserr != nil {
+				fmt.Println(wserr)
+				return
+			}
+			Send(ws, eventstr)
+			Recv(ws, &v)
+			defer ws.Close()
+
+			fmt.Println(wsurls[i])
+			fmt.Println(msg)
+			for _, item := range v {
+				fmt.Println(item)
+			}
+		}
+	}
 	/*
 		z := big.NewInt(0)
 		ret := big.NewInt(0)
@@ -162,84 +247,4 @@ func main() {
 			fmt.Println()
 		}
 	*/
-
-	filep, err := os.Open("../../testkeys")
-	if err != nil {
-		return
-	}
-	defer filep.Close()
-
-	var skeys []([32]byte)
-	var pkeys []([32]byte)
-
-	skeystr := []string{}
-	scanner := bufio.NewScanner(filep)
-	for scanner.Scan() {
-		line := scanner.Text()
-		skeystr = append(skeystr, line)
-		tmpkey, skeyerr := hex.DecodeString(line)
-		if skeyerr != nil {
-			fmt.Println("Error hex.DecoteString ", line)
-			return
-		}
-		var skey [32]byte
-		copy(skey[0:32], tmpkey)
-		skeys = append(skeys, skey)
-		pkey, pkerr := ec.GenerateSecp256k1PublicKey(skey)
-		if pkerr != nil {
-			fmt.Println("Error Public Key Generation ")
-			return
-		}
-		fmt.Println(line)
-		fmt.Println(pkey)
-		pkeys = append(pkeys, pkey)
-	}
-
-	msg := "Test"
-
-	tags := [][]string{}
-	kind := 1
-	created_at := time.Now().Unix()
-
-	for i := 0; i < len(skeys); i++ {
-		hash := Serialize(pkeys[i], created_at, kind, tags, msg)
-		evIDhex := hex.EncodeToString(hash[:])
-		//evSig, sigerr := Sign(sekhex, hash)
-		evSig, sigerr := ec.SingSecp256k1(skeys[i], hash[:])
-		if sigerr != nil {
-			fmt.Println("Signature error", sigerr)
-			return
-		}
-		evSighex := hex.EncodeToString(evSig[:])
-
-		eventstr := "[\"EVENT\",{" +
-			"\"id\":" + "\"" + evIDhex + "\"," +
-			"\"pubkey\":" + "\"" + hex.EncodeToString(pkeys[i][0:32]) + "\"," +
-			"\"created_at\":" + fmt.Sprint(created_at) + "," +
-			"\"kind\":" + fmt.Sprint(kind) + "," +
-			"\"tags\":" + fmt.Sprint(tags) + "," +
-			"\"content\":" + "\"" + msg + "\"," +
-			"\"sig\":" + "\"" + evSighex + "\"" +
-			"}]"
-
-		fmt.Println(eventstr)
-
-		urlws := "wss://nos.lol/"
-		urlhttp := "https://nos.lol/"
-		var v []any
-		ws, wserr := websocket.Dial(urlws, "", urlhttp)
-		if wserr != nil {
-			fmt.Println(wserr)
-			return
-		}
-		Send(ws, eventstr)
-		Recv(ws, &v)
-		defer ws.Close()
-
-		fmt.Println(msg)
-		for _, item := range v {
-			fmt.Println(item)
-		}
-	}
-
 }
