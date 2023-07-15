@@ -2,13 +2,66 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
 
+	"golang.org/x/net/websocket"
+
 	"eccalc/ec"
 	"eccalc/fp"
 )
+
+func Recv(ws *websocket.Conn, v *[]any) error {
+	var rmsg []byte
+	for {
+		var dat any
+		werr := websocket.Message.Receive(ws, &rmsg)
+		if werr != nil {
+			return werr
+		}
+
+		jerr := json.Unmarshal(rmsg, &dat)
+		if jerr != nil {
+			return jerr
+		}
+
+		fmt.Println(string(rmsg))
+
+		if msgtyp := (dat.([]any))[0]; msgtyp == "EOSE" {
+			return nil
+		} else if msgtyp == "OK" {
+			return nil
+		} else if msgtyp == "NOTICE" {
+			return fmt.Errorf("notice: %s", dat)
+		} else {
+			*v = append(*v, dat)
+		}
+	}
+}
+
+func Send(ws *websocket.Conn, msg string) {
+	websocket.Message.Send(ws, msg)
+}
+
+func Serialize(pub string, created_at int64, kind int, tags [][]string, content string) [32]byte {
+	str := "[0," +
+		"\"" + pub + "\"," +
+		fmt.Sprint(created_at) + "," +
+		fmt.Sprint(kind) + "," +
+		fmt.Sprint(tags) + "," +
+		"\"" + content + "\"]"
+
+	hash := sha256.Sum256([]byte(str))
+
+	//fmt.Println(str)
+	//fmt.Println([]byte(str))
+	//fmt.Println(hash)
+
+	return hash
+}
 
 func main() {
 	/*
@@ -65,6 +118,8 @@ func main() {
 		}
 	*/
 
+	/*
+
 	filep, err := os.Open("../../testkeys")
 	if err != nil {
 		return
@@ -104,29 +159,68 @@ func main() {
 		}
 		fmt.Println()
 	}
+	*/
+
+	filep, err := os.Open("../../testkeys")
+	if err != nil {
+		return
+	}
+	defer filep.Close()
+
+	skeys := []([32]byte)
+
+	skeystr := []string{}
+	scanner := bufio.NewScanner(filep)
+	for scanner.Scan() {
+		line := scanner.Text()
+		skeystr = append(skeystr, line)
+
+
+	}
+
+	urlws := "wss://nos.lol/"
+	urlhttp := "https://nos.lol/"
+	pubkhex := "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+	sekhex := "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+	msg := "Your message comes here."
+
+	tags := [][]string{}
+	kind := 1
+	created_at := time.Now().Unix()
+
+	hash := Serialize(pubkhex, created_at, kind, tags, msg)
+	evIDhex := hex.EncodeToString(hash[:])
+	evSig, sigerr := Sign(sekhex, hash)
+	if sigerr != nil {
+		fmt.Println("Signature Error")
+		fmt.Println(sigerr)
+	}
+	evSighex := hex.EncodeToString(evSig[:])
+
+	eventstr := "[\"EVENT\",{" +
+		"\"id\":" + "\"" + evIDhex + "\"," +
+		"\"pubkey\":" + "\"" + pubkhex + "\"," +
+		"\"created_at\":" + fmt.Sprint(created_at) + "," +
+		"\"kind\":" + fmt.Sprint(kind) + "," +
+		"\"tags\":" + fmt.Sprint(tags) + "," +
+		"\"content\":" + "\"" + msg + "\"," +
+		"\"sig\":" + "\"" + evSighex + "\"" +
+		"}]"
+
+	fmt.Println(eventstr)
+
+	var v []any
+	ws, wserr := websocket.Dial(urlws, "", urlhttp)
+	if wserr != nil {
+		fmt.Println(wserr)
+		return
+	}
+	Send(ws, eventstr)
+	Recv(ws, &v)
+	defer ws.Close()
+
+	fmt.Println(msg)
+	for _, item := range v {
+		fmt.Println(item)
+	}
 }
-
-/*
-how to conver big.int to array
-package main
-
-import (
-	"fmt"
-	"math/big"
-	"reflect"
-)
-
-func main() {
-	a, _ := big.NewInt(0).SetString("A1234", 16)
-	b := make([]byte, 32)
-	var c [32]byte
-	a.FillBytes(b)
-	copy(c[:], b[0:32])
-	fmt.Println(fmt.Sprintf("%X", a))
-	fmt.Println(b)
-	fmt.Println(reflect.TypeOf(b))
-
-	fmt.Println(reflect.TypeOf(c))
-	fmt.Println("Hello, playground")
-}
-*/

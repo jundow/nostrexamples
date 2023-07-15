@@ -1,8 +1,11 @@
 package ec
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"eccalc/fp"
 	"errors"
+	"fmt"
 	"math/big"
 )
 
@@ -25,6 +28,7 @@ var Secp256k1 EC
 var Test EC
 var zero *big.Int
 var two *big.Int
+var rand_max *big.Int
 
 func init() {
 	Test.P, _ = big.NewInt(0).SetString("0017", 16)
@@ -43,6 +47,7 @@ func init() {
 
 	zero = big.NewInt(0)
 	two = big.NewInt(2)
+	rand_max = bing.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
 }
 
 func NewECElement(ec *EC, gx, gy *big.Int) *ECElement {
@@ -174,25 +179,136 @@ func GenerateSecp256k1PublicKey(secret *big.Int) (*ECElement, error) {
 	return g, nil
 }
 
-/*
-func GetSecp256k1SchnorrSignature(secret *big.Int, hash [32]byte) ([64]byte, error) {
-	if secret.Cmp(zero) == 0 || secret.Cmp(Secp256k1.Order) >= 0 {
-		err := errors.New("invalid secret key")
-		return [64]byte{}, err
-	}
-	d := big.NewInt(0).Set(secret)
+func (gr *ECElement) GetBytes() ([32]byte, [32]byte) {
+	var bufx, bufy [32]byte
+	gr.X.FillBytes(bufx[0:32])
+	gr.Y.FillBytes(bufy[0:32])
+	return bufx, bufy
+}
 
-	p, err := GenerateSecp256k1PublicKey(d)
-	if err != nil {
-		return [64]byte{}, err
-	}
+func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 
-	if p.Y.Bit(0) != 0 {
-		fp.FpSub(Secp256k1.Order, p, Secp256k1.Order, d)
+	//Generate a random byte array as rand
+	raux, raux_err := rand.Int(rand.Reader, rand_max)
+	if raux_err != nil {
+		return [64]byte{}, raux_err
 	}
 
-	max, _ := big.NewInt(0).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
-	a, errrand := rand.Int(rand.Reader, max)
+	var a [32]byte
+	rtmp := make([]byte, 32)
+	raux.FillBytes(rtmp)
+	copy(a[0:32], rtmp[0:32])
+
+	////////////////////////
+	//Public Key Generation
+
+	//sec := int(secret)
+	//Convert the byte array secret key to big.int
+
+	dd := big.NewInt(0).SetBytes(secret[0:32])
+
+	if dd.Cmp(Secp256k1.Order) >= 0 {
+		return [64]byte{}, fmt.Errorf("Invalid Secret Key")
+	}
+
+	//p = d'G, G as the generator of secp256k1 elliptic curve
+	//Calculate the public key as the point of secp256k1 elliptic curve
+	gsecp := NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
+	p := NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
+	p.ScalarMul(gsecp, dd)
+
+	//public key in byte array
+	var bytes_Pub [32]byte
+	bptmp := make([]byte, 32)
+	p.X.FillBytes(bptmp)
+	copy(bytes_Pub[0:32], bptmp[0:32])
+
+	//If P.Y is even let d = dd, otherwise d = order -d (mod Order of secp256k1)
+	var d *big.Int
+	if p.Y.Bit(0) == 0 {
+		d = big.NewInt(0).Set(dd)
+	} else {
+		d = big.NewInt(0)
+		d.Sub(Secp256k1.Order, dd)
+	}
+
+	/////////////////////////////////
+	//Nonce(random number) generation
+
+	//Let t be the xor of d and hash ( bytes("BIP0340/aux") || bytes("BIP0340/aux") || rand )
+	// xor will be calculated each byte,a is the byte arrar of rand(big.int)
+	var t [32]byte
+	tagBIP0340aux := []byte("BIP0340/aux")
+	rand_h := sha256.Sum256(append(append(tagBIP0340aux, tagBIP0340aux...), a[0:32]...))
+	for i := 0; i < 32; i++ {
+		t[i] = a[i] ^ rand_h[i]
+	}
+
+	//To the random number to sign as;
+	//rand = hash(bytes("BIP0430/nonce") || bytes("BIP0430/nonce") || t || Pubkey || message )
+	tagBIP0340nonce := []byte("BIP0340/nonce")
+	rand_b := append(tagBIP0340nonce, tagBIP0340nonce...)
+	rand_b = append(rand_b, t[0:32]...)
+	rand_b = append(rand_b, bytes_Pub[0:32]...)
+	rand_b = append(rand_b, message...)
+
+	rand := sha256.Sum256(rand_b[0:32])
+
+	//k' = int(rand) mod n
+	kd := big.NewInt(0).SetBytes(rand[0:32])
+	kd = kd.Mod(kd, Secp256k1.Order)
+
+	//Fail kd == 0
+	if kd.Cmp(zero) == 0 {
+		return [64]byte{}, fmt.Errorf("Invalid K-dash value")
+	}
+
+	//r = kd g
+	r := NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
+	r.ScalarMul(gsecp, kd)
+
+	//let k = kd if r.Y is even, otherwise k = order - kd
+	var k *big.Int
+	if r.Y.Bit(0) == 0 {
+		k = big.NewInt(0).Set(kd)
+	} else {
+		k = big.NewInt(0)
+		k.Sub(Secp256k1.Order, kd)
+	}
+
+	//////////////////////
+	//Generate a signature
+
+	// let e the integer of hash( bytes("bytes/challenge") || bytes("bytes/challenge") || bytes(R) || bytes(P) || m)
+	tagBIP0340challenge := []byte("BIP0340/challenge")
+
+	//Elliptic curve points at r = kd g in byte array
+	var r_b [32]byte
+	rbtmp := make([]byte, 32)
+	r.X.FillBytes(rbtmp)
+	copy(r_b[0:32], rbtmp[0:32])
+
+	e_b := append(tagBIP0340challenge, tagBIP0340challenge...)
+	e_b = append(e_b, r_b[0:32]...)
+	e_b = append(e_b, bytes_Pub[0:32]...)
+	e_b = append(e_b, message...)
+
+	e := big.NewInt(0).SetBytes(e_b)
+
+	//let s_b be bytes( k+ed mod order )
+	s := big.NewInt(0).Set(e)
+	s.Mul(s, d)
+	s.Add(s, k)
+
+	var s_b [32]byte
+	sbtmp := make([]byte, 32)
+	s.FillBytes(sbtmp)
+	copy(s_b[0:32], sbtmp)
+
+	//return r_b = bytes(r) and s_b
+	var ret [64]byte
+	copy(ret[0:32], append(r_b[0:32], s_b[0:32]...))
+
+	return ret, nil
 
 }
-*/
