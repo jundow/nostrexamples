@@ -95,7 +95,7 @@ func main() {
 		pkeys = append(pkeys, pkey)
 	}
 
-	msg := "Your Message Comes Here!"
+	msg := "Test10"
 
 	tags := [][]string{}
 	kind := 1

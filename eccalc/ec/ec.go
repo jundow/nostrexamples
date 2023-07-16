@@ -196,6 +196,21 @@ func (gr *ECElement) GetBytes() ([32]byte, [32]byte) {
 	return bufx, bufy
 }
 
+func GetTaggedHash(tag string, items ...[]byte) [32]byte {
+	tagb := []byte(tag)
+	tagh := sha256.Sum256(tagb)
+	h := sha256.New()
+	h.Write(tagh[:])
+	h.Write(tagh[:])
+	for i := 0; i < len(items); i++ {
+		h.Write(items[i])
+	}
+
+	var ret [32]byte
+	copy(ret[0:32], h.Sum(nil))
+	return ret
+}
+
 func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 
 	//Generate a random byte array as rand
@@ -225,8 +240,8 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	p.ScalarMul(gsecp, dd)
 
 	//public key in byte array
-	var bytes_Pub [32]byte
-	copy(bytes_Pub[0:32], p.X.FillBytes(make([]byte, 32)))
+	var pub_b [32]byte
+	copy(pub_b[0:32], p.X.FillBytes(make([]byte, 32)))
 
 	//If p.Y is even let d = dd, otherwise d = order -d (mod Order of secp256k1)
 	var d *big.Int
@@ -243,21 +258,15 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	//Let t be the xor of d and hash ( bytes("BIP0340/aux") || bytes("BIP0340/aux") || rand )
 	// xor will be calculated each byte,a is the byte arrar of rand(big.int)
 	var t [32]byte
-	tagBIP0340aux := []byte("BIP0340/aux")
-	rand_h := sha256.Sum256(append(append(tagBIP0340aux, tagBIP0340aux...), a[0:32]...))
+	rand_h := GetTaggedHash("BIP0340/aux", a[0:32])
+
 	for i := 0; i < 32; i++ {
 		t[i] = a[i] ^ rand_h[i]
 	}
 
 	//To the random number to sign as;
 	//rand = hash(bytes("BIP0430/nonce") || bytes("BIP0430/nonce") || t || Pubkey || message )
-	tagBIP0340nonce := []byte("BIP0340/nonce")
-	rand_b := append(tagBIP0340nonce, tagBIP0340nonce...)
-	rand_b = append(rand_b, t[0:32]...)
-	rand_b = append(rand_b, bytes_Pub[0:32]...)
-	rand_b = append(rand_b, message...)
-
-	rand := sha256.Sum256(rand_b[:])
+	rand := GetTaggedHash("BIP0430/nonce", t[0:32], pub_b[0:32], message)
 
 	//k' = int(rand) mod n
 	kd := big.NewInt(0).SetBytes(rand[0:32])
@@ -286,22 +295,11 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	//Generate a signature
 
 	// let e the integer of hash( bytes("bytes/challenge") || bytes("bytes/challenge") || bytes(R) || bytes(P) || m )
-	tagBIP0340challenge := []byte("BIP0340/challenge")
-	tbc := sha256.Sum256(tagBIP0340challenge)
-
 	//Elliptic curve points at r = kd g in byte array
 	var r_b [32]byte
 	copy(r_b[0:32], r.X.FillBytes(make([]byte, 32)))
 
-	e_htmp := sha256.New()
-	//e_htmp.Write(tagBIP0340challenge)
-	//e_htmp.Write(tagBIP0340challenge)
-	e_htmp.Write(tbc[0:32])
-	e_htmp.Write(tbc[0:32])
-	e_htmp.Write(r_b[0:32])
-	e_htmp.Write(bytes_Pub[0:32])
-	e_htmp.Write(message)
-	e_h := e_htmp.Sum(nil)
+	e_h := GetTaggedHash("BIP0340/challenge", r_b[0:32], pub_b[0:32], message)
 
 	e := big.NewInt(0).SetBytes(e_h[0:32])
 	e.Mod(e, Secp256k1.Order)
@@ -322,4 +320,8 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	copy(ret[0:64], append(r_b[0:32], s_b[0:32]...))
 
 	return ret, nil
+}
+
+func VerifySecp256k1(public [32]byte, message []byte, sig [64]byte) bool {
+
 }
