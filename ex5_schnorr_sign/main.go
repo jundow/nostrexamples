@@ -63,7 +63,7 @@ func Serialize(pubkey [32]byte, created_at int64, kind int, tags [][]string, con
 
 func main() {
 
-	filep, err := os.Open("../../testkeys	")
+	filep, err := os.Open("../../testkeys")
 	if err != nil {
 		return
 	}
@@ -72,11 +72,9 @@ func main() {
 	var skeys []([32]byte)
 	var pkeys []([32]byte)
 
-	skeystr := []string{}
 	scanner := bufio.NewScanner(filep)
 	for scanner.Scan() {
 		line := scanner.Text()
-		skeystr = append(skeystr, line)
 		tmpkey, skeyerr := hex.DecodeString(line)
 		if skeyerr != nil {
 			fmt.Println("Error hex.DecoteString ", line)
@@ -90,12 +88,12 @@ func main() {
 			fmt.Println("Error Public Key Generation ")
 			return
 		}
-		fmt.Println(line)
-		fmt.Println(pkey)
+		//fmt.Println(line)
+		//fmt.Println(pkey)
 		pkeys = append(pkeys, pkey)
 	}
 
-	msg := "Test 11"
+	msg := "Test 12"
 
 	tags := [][]string{}
 	kind := 1
@@ -139,10 +137,10 @@ func main() {
 			"https://nos.lol/",
 		}
 
-		for i = 0; i < len(wsurls); i++ {
+		for j := 0; j < len(wsurls); j++ {
 
 			var v []any
-			ws, wserr := websocket.Dial(wsurls[i], "", httpsurls[i])
+			ws, wserr := websocket.Dial(wsurls[j], "", httpsurls[j])
 			if wserr != nil {
 				fmt.Println(wserr)
 				return
@@ -151,7 +149,7 @@ func main() {
 			Recv(ws, &v)
 			defer ws.Close()
 
-			fmt.Println(wsurls[i])
+			fmt.Println(wsurls[j])
 			fmt.Println(msg)
 			for _, item := range v {
 				fmt.Println(item)

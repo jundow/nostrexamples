@@ -230,7 +230,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	dd := big.NewInt(0).SetBytes(secret[0:32])
 
 	if dd.Cmp(Secp256k1.Order) >= 0 {
-		return [64]byte{}, fmt.Errorf("Invalid Secret Key")
+		return [64]byte{}, fmt.Errorf("invalid secret key")
 	}
 
 	//p = d'G, G as the generator of secp256k1 elliptic curve
@@ -274,7 +274,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 
 	//Fail kd == 0
 	if kd.Cmp(zero) == 0 {
-		return [64]byte{}, fmt.Errorf("Invalid K-dash value")
+		return [64]byte{}, fmt.Errorf("invalid k-dash value")
 	}
 
 	//r = kd g
@@ -294,7 +294,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	//////////////////////
 	//Generate a signature
 
-	// let e the integer of hash( bytes("bytes/challenge") || bytes("bytes/challenge") || bytes(R) || bytes(P) || m )
+	//let e the integer of hash( bytes("bytes/challenge") || bytes("bytes/challenge") || bytes(R) || bytes(P) || m )
 	//Elliptic curve points at r = kd g in byte array
 	var r_b [32]byte
 	copy(r_b[0:32], r.X.FillBytes(make([]byte, 32)))
@@ -328,7 +328,7 @@ func VerifySecp256k1(public [32]byte, message []byte, sig [64]byte) (bool, error
 
 	pvx := big.NewInt(0).SetBytes(public[:])
 	if pvx.Cmp(Secp256k1.P) >= 0 {
-		return false, fmt.Errorf("Invalid Public Key")
+		return false, fmt.Errorf("invalid public key")
 	}
 
 	pvy := big.NewInt(0)
@@ -342,34 +342,36 @@ func VerifySecp256k1(public [32]byte, message []byte, sig [64]byte) (bool, error
 	fp.FpMul(pvy, pvy, Secp256k1.P, pvy2)
 
 	if pvr.Cmp(pvy2) != 0 {
-		return false, fmt.Errorf("Invalid Public Key")
+		return false, fmt.Errorf("invalid public key")
 	}
 
 	pv.X.Set(pvx)
+	if pvy.Bit(0) != 0 {
+		pvy.Sub(Secp256k1.P, pvy)
+	}
 	pv.Y.Set(pvy)
 
 	// Derive r from sig[0:32]
 	r := big.NewInt(0).SetBytes(sig[0:32])
 	if r.Cmp(Secp256k1.P) >= 0 {
-		return false, fmt.Errorf("Invalid signature sig[0:32]")
+		return false, fmt.Errorf("invalid signature sig[0:32]")
 	}
 
 	s := big.NewInt(0).SetBytes(sig[32:64])
 	if s.Cmp(Secp256k1.Order) >= 0 {
-		return false, fmt.Errorf("Invalid signature sig[32:64]")
+		return false, fmt.Errorf("invalid signature sig[32:64]")
 	}
 
 	//e = int( Hash(sha256(tag) || sha256(tag) || bytes(r) || bytes(pv.X) ) ) mod n
 	var pvx_b [32]byte
 	copy(pvx_b[0:32], pv.X.FillBytes(make([]byte, 32)))
 
-	e_hash := GetTaggedHash("BIP0340/challenge", sig[0:32], pvx_b[0:32], message)
+	e_h := GetTaggedHash("BIP0340/challenge", sig[0:32], pvx_b[0:32], message)
 
-	e := big.NewInt(0).SetBytes(e_hash)
+	e := big.NewInt(0).SetBytes(e_h[0:32])
 	e.Mod(e, Secp256k1.Order)
 
 	//rv = sG - ePv
-
 	ptmp := NewECElement(&Secp256k1, Secp256k1.P, Secp256k1.P)
 	ptmp.ScalarMul(pv, e)
 	//Negate
@@ -383,15 +385,15 @@ func VerifySecp256k1(public [32]byte, message []byte, sig [64]byte) (bool, error
 	//Check the signature is valid and retun the result
 
 	if rv.X.Cmp(Secp256k1.P) == 0 {
-		return false, fmt.Errorf("Invalid signature: rv is at infinity")
+		return false, fmt.Errorf("invalid signature: rv is at infinity")
 	}
 
 	if rv.Y.Bit(0) != 0 {
-		return false, fmt.Errorf("Invalid signature: rv is not even")
+		return false, fmt.Errorf("invalid signature: rv is not even")
 	}
 
 	if rv.X.Cmp(r) != 0 {
-		return false, fmt.Errorf("Invalid signature: rv.X does not match to r")
+		return false, fmt.Errorf("invalid signature: rv.X does not match to r")
 	}
 
 	return true, nil

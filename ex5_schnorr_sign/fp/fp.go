@@ -1,7 +1,6 @@
 package fp
 
 import (
-	"fmt"
 	"math/big"
 )
 
@@ -12,7 +11,6 @@ var four *big.Int
 //var pSecp256k *big.Int
 
 func init() {
-	fmt.Println("fp init")
 	zero = big.NewInt(0)
 	one = big.NewInt(1)
 	four = big.NewInt(4)

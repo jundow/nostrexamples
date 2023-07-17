@@ -30,8 +30,8 @@ This article hide the generation process of random numbers so called nonce to si
 #### Constant
 
 - $\bold{G}$ Generator of Secp256k1 elliptic curve
-- $p_r$ = 0xXXXXXXXX; Prime number assigned to Secp256k1 elliptic curve
-- $n$ = 0x0000000000; Order of the generator $\bold{G}$ in scalar multiplication
+- $p_r$ = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F; Prime number assigned to Secp256k1 elliptic curve
+- $n$ = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141; Order of the generator $\bold{G}$ in scalar multiplication
 
 #### Signing Process
 
@@ -76,4 +76,6 @@ This article hide the generation process of random numbers so called nonce to si
 
 ### Generating Random Number
 
-(Under constuction)
+(Under construction)
+
+
