@@ -311,9 +311,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	s.Mod(s, Secp256k1.Order)
 
 	var s_b [32]byte
-	sbtmp := make([]byte, 32)
-	s.FillBytes(sbtmp)
-	copy(s_b[0:32], sbtmp)
+	copy(s_b[0:32], s.FillBytes(make([]byte, 32)))
 
 	//return r_b = bytes(r) and s_b
 	var ret [64]byte
@@ -322,6 +320,80 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	return ret, nil
 }
 
-func VerifySecp256k1(public [32]byte, message []byte, sig [64]byte) bool {
+func VerifySecp256k1(public [32]byte, message []byte, sig [64]byte) (bool, error) {
+	// pv.x = int(public)
+	// py = sqrt(pv.x^3 + 7 mod p) ... Select even value of two possible solutions
+
+	pv := NewECElement(&Secp256k1, Secp256k1.P, Secp256k1.P)
+
+	pvx := big.NewInt(0).SetBytes(public[:])
+	if pvx.Cmp(Secp256k1.P) >= 0 {
+		return false, fmt.Errorf("Invalid Public Key")
+	}
+
+	pvy := big.NewInt(0)
+	pvr := big.NewInt(0)
+	fp.FpMul(pvx, pvx, Secp256k1.P, pvr)
+	fp.FpMul(pvr, pvx, Secp256k1.P, pvr)
+	fp.FpAdd(pvr, big.NewInt(7), Secp256k1.P, pvr)
+	fp.FpSecp256kSqrt(pvr, Secp256k1.P, pvy)
+
+	pvy2 := big.NewInt(0)
+	fp.FpMul(pvy, pvy, Secp256k1.P, pvy2)
+
+	if pvr.Cmp(pvy2) != 0 {
+		return false, fmt.Errorf("Invalid Public Key")
+	}
+
+	pv.X.Set(pvx)
+	pv.Y.Set(pvy)
+
+	// Derive r from sig[0:32]
+	r := big.NewInt(0).SetBytes(sig[0:32])
+	if r.Cmp(Secp256k1.P) >= 0 {
+		return false, fmt.Errorf("Invalid signature sig[0:32]")
+	}
+
+	s := big.NewInt(0).SetBytes(sig[32:64])
+	if s.Cmp(Secp256k1.Order) >= 0 {
+		return false, fmt.Errorf("Invalid signature sig[32:64]")
+	}
+
+	//e = int( Hash(sha256(tag) || sha256(tag) || bytes(r) || bytes(pv.X) ) ) mod n
+	var pvx_b [32]byte
+	copy(pvx_b[0:32], pv.X.FillBytes(make([]byte, 32)))
+
+	e_hash := GetTaggedHash("BIP0340/challenge", sig[0:32], pvx_b[0:32], message)
+
+	e := big.NewInt(0).SetBytes(e_hash)
+	e.Mod(e, Secp256k1.Order)
+
+	//rv = sG - ePv
+
+	ptmp := NewECElement(&Secp256k1, Secp256k1.P, Secp256k1.P)
+	ptmp.ScalarMul(pv, e)
+	//Negate
+	ptmp.Y.Sub(Secp256k1.P, ptmp.Y)
+	ptmp.Y.Mod(ptmp.Y, Secp256k1.P)
+
+	rv := NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
+	rv.ScalarMul(rv, s)
+	rv.Add(rv, ptmp)
+
+	//Check the signature is valid and retun the result
+
+	if rv.X.Cmp(Secp256k1.P) == 0 {
+		return false, fmt.Errorf("Invalid signature: rv is at infinity")
+	}
+
+	if rv.Y.Bit(0) != 0 {
+		return false, fmt.Errorf("Invalid signature: rv is not even")
+	}
+
+	if rv.X.Cmp(r) != 0 {
+		return false, fmt.Errorf("Invalid signature: rv.X does not match to r")
+	}
+
+	return true, nil
 
 }

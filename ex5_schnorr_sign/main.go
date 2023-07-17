@@ -63,7 +63,7 @@ func Serialize(pubkey [32]byte, created_at int64, kind int, tags [][]string, con
 
 func main() {
 
-	filep, err := os.Open("../../mkey")
+	filep, err := os.Open("../../testkeys	")
 	if err != nil {
 		return
 	}
@@ -95,7 +95,7 @@ func main() {
 		pkeys = append(pkeys, pkey)
 	}
 
-	msg := "Test10"
+	msg := "Test 11"
 
 	tags := [][]string{}
 	kind := 1
@@ -111,6 +111,13 @@ func main() {
 			return
 		}
 		evSighex := hex.EncodeToString(evSig[:])
+
+		vres, verr := ec.VerifySecp256k1(pkeys[i], hash[:], evSig)
+
+		if !vres {
+			fmt.Println("Signature Verification error", verr)
+			return
+		}
 
 		eventstr := "[\"EVENT\",{" +
 			"\"id\":" + "\"" + evIDhex + "\"," +
