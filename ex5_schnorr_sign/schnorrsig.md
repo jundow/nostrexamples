@@ -75,6 +75,13 @@ This article hide the generation process of random numbers so called nonce to si
     This means, $e\cdot(d\cdot\mathbf{G}) - e\cdot\mathbf{P}_v = \mathbf{O}$, because the polarity of $\mathbf{P}_v.y$ was selected for $\mathbf{P}_v$ to always be even. 
   - If the Schnorr signature is valid, the $x$ of both "$R = k'\cdot\mathbf{G}$" and "$\mathbf{R}_v=k\cdot\mathbf{G}$" should be equal. You can use this fact to check the sign is valid or not.
 
+
+### Pictorial Representation of Sign/Verification process
+
+Based on [BIP0340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
+
+![aaa](./BIP0340DataFlow.drawio.svg)
+
 ### Generating Random Number
 
 (Under construction)
