@@ -2,12 +2,6 @@
 
 These examples aim to understand how Nostr relay works with NIPs.
 
-### Todo 
-
-- [ ] Ex4 
-- [ ] To make e
-
-
 ### ex1 (Golang)
 Reads single user's notes from single relay.
 
@@ -80,6 +74,5 @@ The event will immediately be issued once the program ran.
 Added the statement that sends "["CLOSE","1"]" after received "EOSE."
 
 ## ex5 Note about crush course to implement Schnorr signature with secp256k1 elliptic curve cryptography 
-
 
 
