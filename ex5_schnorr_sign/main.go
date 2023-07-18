@@ -63,7 +63,7 @@ func Serialize(pubkey [32]byte, created_at int64, kind int, tags [][]string, con
 
 func main() {
 
-	filep, err := os.Open("../../testkeys")
+	filep, err := os.Open("../../mkey")
 	if err != nil {
 		return
 	}
@@ -93,7 +93,7 @@ func main() {
 		pkeys = append(pkeys, pkey)
 	}
 
-	msg := "Test 12"
+	msg := "Your message comes here."
 
 	tags := [][]string{}
 	kind := 1
@@ -129,18 +129,18 @@ func main() {
 
 		fmt.Println(eventstr)
 
-		wsurls := []string{
-			"wss://nos.lol/",
+		relays := []string{
+			"nos.lol/",
+			"relay.nostr.wirednet.jp",
+			"nostr.h3z.jp",
+			//"nostr-world.h3z.jp",
+			"nostr-relay.nokotaro.com",
 		}
 
-		httpsurls := []string{
-			"https://nos.lol/",
-		}
-
-		for j := 0; j < len(wsurls); j++ {
+		for j := 0; j < len(relays); j++ {
 
 			var v []any
-			ws, wserr := websocket.Dial(wsurls[j], "", httpsurls[j])
+			ws, wserr := websocket.Dial("wss://"+relays[j], "", "https://"+relays[j])
 			if wserr != nil {
 				fmt.Println(wserr)
 				return
@@ -149,7 +149,7 @@ func main() {
 			Recv(ws, &v)
 			defer ws.Close()
 
-			fmt.Println(wsurls[j])
+			fmt.Println(relays[j])
 			fmt.Println(msg)
 			for _, item := range v {
 				fmt.Println(item)
