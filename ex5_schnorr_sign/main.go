@@ -93,7 +93,7 @@ func main() {
 		pkeys = append(pkeys, pkey)
 	}
 
-	msg := "Your message comes here."
+	msg := "テスト01 2023-07-22"
 
 	tags := [][]string{}
 	kind := 1
@@ -132,7 +132,7 @@ func main() {
 		relays := []string{
 			"nos.lol/",
 			"relay.nostr.wirednet.jp",
-			"nostr.h3z.jp",
+			//"nostr.h3z.jp",
 			//"nostr-world.h3z.jp",
 			"nostr-relay.nokotaro.com",
 		}

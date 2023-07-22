@@ -35,6 +35,7 @@ func FpMul(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
 }
 
 func FpInv(x *big.Int, p *big.Int, ret *big.Int) *big.Int {
+	//Calculating the inverse element of x in F_p using extended Euclidian Algoritm
 	a := big.NewInt(0).Set(p)
 	b := big.NewInt(0).Set(x)
 	q := big.NewInt(0)
@@ -50,13 +51,24 @@ func FpInv(x *big.Int, p *big.Int, ret *big.Int) *big.Int {
 	m21n := big.NewInt(0)
 	m22n := big.NewInt(1)
 
+	defer a.SetInt64(0)
+	defer b.SetInt64(0)
+	defer q.SetInt64(0)
+	defer r.SetInt64(0)
+	defer m11.SetInt64(0)
+	defer m12.SetInt64(0)
+	defer m21.SetInt64(0)
+	defer m22.SetInt64(0)
+	defer m11n.SetInt64(0)
+	defer m12n.SetInt64(0)
+	defer m21n.SetInt64(0)
+	defer m22n.SetInt64(0)
+
 	for {
 		m11n.Set(m12)
 		m12n.Mul(q, m12).Sub(m11, m12n)
-		//m12n.Sub(m11, m12n)
 		m21n.Set(m22)
 		m22n.Mul(q, m22).Sub(m21, m22n)
-		//m22n.Sub(m21, m22n)
 
 		q.DivMod(a, b, r)
 		a.Set(b)
@@ -80,6 +92,8 @@ func FpInv(x *big.Int, p *big.Int, ret *big.Int) *big.Int {
 
 func FpDiv(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
 	tmp := big.NewInt(0)
+	defer tmp.SetInt64(0)
+
 	FpInv(y, p, tmp)
 	FpMul(x, tmp, p, ret)
 	return ret
@@ -87,6 +101,8 @@ func FpDiv(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
 
 func FpPow(x *big.Int, y *big.Int, p *big.Int, ret *big.Int) *big.Int {
 	xtmp := big.NewInt(0).Set(x)
+	defer xtmp.SetInt64(0)
+
 	ret.SetInt64(1)
 	//fmt.Println(y.BitLen())
 	for i := 0; i < y.BitLen(); i++ {
@@ -105,6 +121,9 @@ func FpSecp256kSqrt(x *big.Int, p *big.Int, ret *big.Int) (*big.Int, bool) {
 	xtmp := big.NewInt(0).Set(x)
 	tmp := big.NewInt(0)
 	tmp2 := big.NewInt(0)
+	defer xtmp.SetInt64(0)
+	defer tmp.SetInt64(0)
+	defer tmp2.SetInt64(0)
 
 	tmp.Add(p, one)
 	tmp.Div(tmp, four)

@@ -29,6 +29,7 @@ var Test EC
 var zero *big.Int
 var two *big.Int
 var rand_max *big.Int
+var blankarray [32]byte
 
 func init() {
 	Test.P, _ = big.NewInt(0).SetString("0017", 16)
@@ -89,6 +90,13 @@ func (gr *ECElement) Add(g1, g2 *ECElement) *ECElement {
 		rety := big.NewInt(0)
 		lambda := big.NewInt(0)
 
+		defer lambdax.SetInt64(0)
+		defer lambday.SetInt64(0)
+		defer dx.SetInt64(0)
+		defer retx.SetInt64(0)
+		defer rety.SetInt64(0)
+		defer lambda.SetInt64(0)
+
 		fp.FpAdd(g1.Y, g2.Y, gr.Ec.P, rety)
 		if rety.Cmp(zero) == 0 {
 			gr.SetUnitElement()
@@ -124,6 +132,11 @@ func (gr *ECElement) Double(g1 *ECElement) *ECElement {
 		retx := big.NewInt(0)
 		rety := big.NewInt(0)
 
+		defer C.SetInt64(0)
+		defer lambda.SetInt64(0)
+		defer retx.SetInt64(0)
+		defer rety.SetInt64(0)
+
 		fp.FpMul(lambda, g1.X, gr.Ec.P, lambda)
 		fp.FpMul(lambda, g1.X, gr.Ec.P, lambda)
 		fp.FpAdd(lambda, gr.Ec.A, gr.Ec.P, lambda)
@@ -155,6 +168,9 @@ func (gr *ECElement) ScalarMul(g1 *ECElement, m *big.Int) *ECElement {
 		gret := NewECElement(gr.Ec, gr.Ec.P, gr.Ec.P)
 		gtmp := NewECElement(gr.Ec, g1.X, g1.Y)
 
+		defer gret.SetUnitElement()
+		defer gtmp.SetUnitElement()
+
 		for i := 0; i < m.BitLen(); i++ {
 			if m.Bit(i) > 0 {
 				gret.Add(gret, gtmp)
@@ -169,6 +185,7 @@ func (gr *ECElement) ScalarMul(g1 *ECElement, m *big.Int) *ECElement {
 func GenerateSecp256k1PublicKey(sec [32]byte) ([32]byte, error) {
 
 	secret := big.NewInt(0).SetBytes(sec[0:32])
+	defer secret.SetUint64(0)
 
 	g := NewECElement(&Secp256k1, Secp256k1.P, Secp256k1.P)
 
@@ -182,6 +199,7 @@ func GenerateSecp256k1PublicKey(sec [32]byte) ([32]byte, error) {
 
 	var ret [32]byte
 	tmp := make([]byte, 32)
+	defer copy(tmp, blankarray[0:32])
 
 	g.X.FillBytes(tmp)
 	copy(ret[0:32], tmp[0:32])
@@ -219,7 +237,11 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 		return [64]byte{}, raux_err
 	}
 	var a [32]byte
-	copy(a[0:32], raux.FillBytes(make([]byte, 32)))
+	a_tmp := raux.FillBytes(make([]byte, 32))
+	copy(a[0:32], a_tmp)
+	defer raux.SetInt64(0)
+	defer copy(a[0:32], blankarray[0:32])
+	defer copy(a_tmp[0:32], blankarray[0:32])
 
 	////////////////////////
 	//Public Key Generation
@@ -228,6 +250,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	//Convert the byte array secret key to big.int
 
 	dd := big.NewInt(0).SetBytes(secret[0:32])
+	defer dd.SetInt64(0)
 
 	if dd.Cmp(Secp256k1.Order) >= 0 {
 		return [64]byte{}, fmt.Errorf("invalid secret key")
@@ -251,6 +274,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 		d = big.NewInt(0)
 		d.Sub(Secp256k1.Order, dd)
 	}
+	defer d.SetInt64(0)
 
 	/////////////////////////////////
 	//Nonce(random number) generation
@@ -259,6 +283,8 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	// xor will be calculated each byte,a is the byte arrar of rand(big.int)
 	var t [32]byte
 	rand_h := GetTaggedHash("BIP0340/aux", a[0:32])
+	defer copy(t[0:32], blankarray[:])
+	defer copy(rand_h[:][0:32], blankarray[0:32])
 
 	for i := 0; i < 32; i++ {
 		t[i] = a[i] ^ rand_h[i]
@@ -267,10 +293,12 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	//To the random number to sign as;
 	//rand = hash(bytes("BIP0430/nonce") || bytes("BIP0430/nonce") || t || Pubkey || message )
 	rand := GetTaggedHash("BIP0430/nonce", t[0:32], pub_b[0:32], message)
+	defer copy(rand[0:32], blankarray[0:32])
 
 	//k' = int(rand) mod n
 	kd := big.NewInt(0).SetBytes(rand[0:32])
 	kd.Mod(kd, Secp256k1.Order)
+	defer kd.SetInt64(0)
 
 	//Fail kd == 0
 	if kd.Cmp(zero) == 0 {
@@ -278,9 +306,10 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 	}
 
 	//r = kd g
-	gsecp = NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
+	//gsecp = NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
 	r := NewECElement(&Secp256k1, Secp256k1.Gx, Secp256k1.Gy)
 	r.ScalarMul(gsecp, kd)
+	defer r.SetUnitElement()
 
 	//let k = kd if r.Y is even, otherwise k = order - kd
 	var k *big.Int
@@ -290,6 +319,7 @@ func SingSecp256k1(secret [32]byte, message []byte) ([64]byte, error) {
 		k = big.NewInt(0)
 		k.Sub(Secp256k1.Order, kd)
 	}
+	defer k.SetInt64(0)
 
 	//////////////////////
 	//Generate a signature
@@ -335,7 +365,7 @@ func VerifySecp256k1(public [32]byte, message []byte, sig [64]byte) (bool, error
 	pvr := big.NewInt(0)
 	fp.FpMul(pvx, pvx, Secp256k1.P, pvr)
 	fp.FpMul(pvr, pvx, Secp256k1.P, pvr)
-	fp.FpAdd(pvr, big.NewInt(7), Secp256k1.P, pvr)
+	fp.FpAdd(pvr, Secp256k1.B, Secp256k1.P, pvr)
 	fp.FpSecp256kSqrt(pvr, Secp256k1.P, pvy)
 
 	pvy2 := big.NewInt(0)
